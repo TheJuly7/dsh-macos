@@ -395,7 +395,7 @@ if (injectedCss !== '') {
   if (frameBlock === null) fail.push('the window frame has no rule of its own')
   else {
     const body = frameBlock[1]
-    if (!/border-radius:18px/.test(body)) fail.push('the pane is not rounded, so it cannot read as a macOS window')
+    if (!/border-radius:11px/.test(body)) fail.push('the pane is not rounded, so it cannot read as a macOS window')
     if (!/isolation:isolate/.test(body)) fail.push('the frame is not isolated, so the blur layer\'s paint order is not guaranteed')
     if (/(?:^|;)(?:-webkit-)?(?:filter|transform|contain|perspective):/.test(body)) {
       fail.push('the frame sets filter/transform/contain, which would re-parent the fixed-position window chrome')
@@ -463,13 +463,13 @@ if (injectedCss !== '') {
   // macOS rounds a window further than dsh does on Windows. The pane's radius and the blur layer's
   // must match, or the frost would show a light rim inside the corners.
   const radii = [...flat.matchAll(/border-radius:(\d+)px/g)].map((m) => Number(m[1]))
-  if (!radii.includes(18)) fail.push('the window corners are not rounded to the macOS radius (18px)')
-  else if (radii.filter((value) => value === 18).length < 2) {
+  if (!radii.includes(11)) fail.push('the window corners are not rounded to the macOS radius (11px)')
+  else if (radii.filter((value) => value === 11).length < 2) {
     fail.push('the pane and its blur layer do not share one corner radius, so the frost would rim the corners')
   } else if (!/_2H3hWW_root:not\(\._2H3hWW_collapsed\)\._2H3hWW_newSession\{border-radius:12px\}/.test(flat)) {
     fail.push('the expanded new-session button keeps dsh\'s tighter radius')
   } else {
-    note('corner radii         : 18px on the pane and its blur layer; the expanded new-session button at 12px')
+    note('corner radii         : 11px on the pane and its blur layer; the expanded new-session button at 12px')
   }
   // The seam between the two parts: dsh rounds the content column's top-left corner, which cuts a
   // curve into it. It must be squared, while the pane keeps its own rounding for the window's
