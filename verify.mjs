@@ -203,6 +203,16 @@ if (Array.isArray(host.inject) && host.inject.indexOf('webServer') !== -1) {
 }
 note(`host half            : Win32 window commands behind a POST-only ${host.WINDOW_ROUTE}, guarded by process.ppid`)
 
+// The stock menu bar sits exactly where the traffic lights go, so the host clears it — and it is
+// the only part of the earlier Win32 pass that was worth keeping. SetWindowLongPtrW and DeleteMenu
+// stay forbidden above, because clearing the caption-button style bits and deleting the close item
+// cost the window its minimise and its Alt+F4.
+if (!/setMenu:/.test(hostSource) || !/table\.setMenu\(handle, 0\)/.test(hostSource)) {
+  fail.push('the host half no longer clears the stock menu bar, which overlaps the window controls')
+} else {
+  note('menu bar             : cleared by the host half (SetMenu only, no style or menu-item edits)')
+}
+
 // ---------------------------------------------------------------- 2. manifest
 if (!pkg.dsh?.bundle?.patch) fail.push('package.json is missing dsh.bundle.patch')
 if (pkg.dsh?.client?.platform !== 'web') fail.push('package.json is missing dsh.client.platform = "web"')
@@ -439,6 +449,14 @@ if (injectedCss !== '') {
     fail.push('the window controls depend on the stylesheet for their size, so a reload without it renders them huge')
   } else {
     note('controls robustness  : the dot box and its glyph are sized inline, not by the stylesheet alone')
+  }
+
+  // The reveal has to come from state as well. With the sheet missing, a CSS-only reveal left the
+  // close, minimise and zoom marks all visible at once, which read as three marks over the window.
+  if (!/opacity:\s*hovered\s*\?/.test(source) || !/onMouseEnter/.test(source)) {
+    fail.push('the window controls reveal their marks through the stylesheet alone, so a render without it shows all three')
+  } else {
+    note('mark reveal          : driven by component state, so it survives a missing stylesheet')
   }
 
   // 3. the whole left column is frosted, in both appearances.

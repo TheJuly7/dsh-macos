@@ -77,7 +77,7 @@ node tools/bundle-patch.mjs restore    # 还原
 
 | 命令 | 作用 |
 |---|---|
-| `node verify.mjs` | 39 项自检 |
+| `node verify.mjs` | 44 项自检 |
 | `node tools/install.mjs --dry-run` | 看安装器会改什么 |
 | `node tools/bundle-patch.mjs status` | 查看/还原归档补丁 |
 | `node tools/extract-dsh-surface.mjs` | DSH 升级后刷新类名/槽位快照 |
