@@ -361,8 +361,8 @@ if (!definition) {
 // otherwise be read as a class selector once the text is flattened.
 const cssOnly = injectedCss.replace(/\/\*[\s\S]*?\*\//g, '')
 const flat = cssOnly.replace(/\s+/g, '')
-const frameBlock = /:has\(>\[data-shell-overlay\]\)\{([^}]*)\}/.exec(flat)
-const frostBlock = /:has\(>\[data-shell-overlay\]\):before\{([^}]*)\}/.exec(flat)
+const frameBlock = /\.BynINW_frame\{([^}]*)\}/.exec(flat)
+const frostBlock = /\.BynINW_frame:before\{([^}]*)\}/.exec(flat)
 
 if (injectedCss !== '') {
   // 1. the stock window menu is gone.
@@ -380,7 +380,7 @@ if (injectedCss !== '') {
   } else {
     note('no title strip       : --dsh-windows-titlebar-height:0px !important, so the frame\'s padding-top and the strip both collapse')
   }
-  const afterBlock = /:has\(>\[data-shell-overlay\]\):after\{([^}]*)\}/.exec(flat)
+  const afterBlock = /\.BynINW_frame:after\{([^}]*)\}/.exec(flat)
   if (afterBlock === null || !/-webkit-app-region:drag/.test(afterBlock[1])) {
     fail.push('the window lost its drag region with the strip and nothing replaced it')
   } else if (!/left:88px/.test(afterBlock[1])) {
@@ -418,6 +418,27 @@ if (injectedCss !== '') {
       else note(`sidebar fill         : thinned to ${mix[1]}% over the blur layer, standing in for the window server's vibrancy`)
     }
     note('pane                 : shape only (rounded, isolated, no fill) — the frame and divider come from dsh\'s darwin rules')
+  }
+
+  // The frame is selected by dsh's own class now, so that class has to be in the surface snapshot:
+  // a build that renames it must fail here rather than let the blur layer land on whatever a
+  // structural selector happens to match next.
+  {
+    const snapshot = surfaceFile === undefined ? '' : fs.readFileSync(surfaceFile, 'utf8')
+    if (!snapshot.includes('BynINW_frame')) {
+      fail.push('the surface snapshot does not mention the frame class the plugin now selects by')
+    } else {
+      note('frame selector       : .BynINW_frame, and that class is named in the surface snapshot')
+    }
+  }
+
+  // The window controls carry their own geometry. Sizing them from the stylesheet alone once let a
+  // client-module reload — triggered by toggling another plugin — leave the component mounted
+  // without the sheet, and three glyphs filled the window.
+  if (!/width:\s*'16px'/.test(source) || !/width:\s*16,\s*height:\s*16/.test(source)) {
+    fail.push('the window controls depend on the stylesheet for their size, so a reload without it renders them huge')
+  } else {
+    note('controls robustness  : the dot box and its glyph are sized inline, not by the stylesheet alone')
   }
 
   // 3. the whole left column is frosted, in both appearances.
