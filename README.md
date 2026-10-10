@@ -1,5 +1,7 @@
 # dsh-macos
 
+**当前版本：v0.1.2** ｜ [更新记录](./CHANGELOG.md)
+
 把 Windows 版 **DeepSeek Harness 桌面客户端**做成 macOS 版的样子：红黄绿三个圆点、可折叠的磨砂侧边栏、两块之间齐平的接缝，并且**完全没有 Windows 标题栏按钮**。
 
 只作用于桌面客户端（Windows）；网页版不受影响（插件会自行判断并退出）。原理是复用 DSH 内置的 darwin 样式，只补上 macOS 由**系统**提供、Windows 没有的部分。
