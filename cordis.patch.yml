@@ -1,0 +1,8 @@
+# dsh-macos — Host-plane row for this bundle.
+#
+# The row id must equal the package name: client-modules serves the browser half as
+# /plugins/<row id>/client.js and matches it against the id the client bundle registers
+# in window.__ModuleLoader__.load(). All three are "dsh-macos".
+- insert:
+    - id: dsh-macos
+      name: 'dsh-macos'

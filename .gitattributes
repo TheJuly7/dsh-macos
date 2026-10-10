@@ -1,0 +1,8 @@
+# Normalise line endings on commit: the repository is authored on Windows but is plain text, and
+# this keeps git from converting anything depending on the local core.autocrlf setting.
+* text=auto eol=lf
+
+# A plugin bundle is source; nothing here is generated except the surface snapshot, which is
+# committed on purpose so a DSH upgrade can be diffed against it.
+verify.mjs text eol=lf
+surface/*.json text eol=lf
