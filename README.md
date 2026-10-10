@@ -26,9 +26,43 @@
 | 应用 | DeepSeek Harness 桌面客户端（在 **0.2.0-rc.2** 上开发与验证） |
 | Node | ≥ 20（只有跑校验脚本和维护工具时才需要） |
 
-### 方式一：写进 profile（推荐）
+### 一键安装（推荐）
 
-1. 把本仓库放到任意目录，例如 `D:\plugins\dsh-macos`。
+把仓库放到任意目录（例如 `D:\plugins\dsh-macos`），然后：
+
+- **双击 `install.cmd`**（Windows 会问一次是否允许；不想双击就在终端里跑 `node tools\install.mjs`）。
+
+它会自动完成四件事，然后提示你重启：
+
+```
+plugin    : D:\plugins\dsh-macos
+profile   : C:\Users\<你>\.dsh\profiles\desktop
+manifest  : updated (backup: package.json.bak-2026-...)
+link      : linked                       ← 建好 node_modules\dsh-macos 联接
+caption   : window option=already appearance channel=already  (…\resources\app.asar)
+
+next      : fully restart the client (close it to the tray is not enough)
+remove    : Settings → Plugins, then restart
+            if the caption buttons come back on their own, run: node D:\plugins\dsh-macos\tools\bundle-patch.mjs restore
+```
+
+几个常用参数：
+
+| 参数 | 作用 |
+|---|---|
+| `--dry-run` | 只报告会改什么，**不写任何文件** |
+| `--profile <名字>` | 指定 profile（默认 `desktop`；只有一个 profile 时用它） |
+| `--no-patch` | 不去动应用的 `app.asar`（标题栏按钮会保留） |
+| `--home <目录>` | 指定 `.dsh/profiles` 根目录（便携/测试用） |
+| `--force` | 当 profile 已指向**另一份副本**时，强行改为指向当前这份 |
+
+安装器是**可重复运行**的：已装好时它只报 `already installed from this folder`，不写文件。如果你的 profile 已经指向另一份副本，它会**拒绝并保持原样**（不会改一半），提示你改从那份运行或加 `--force`。
+
+装完必须**完全退出并重新启动 DSH**：宿主半侧与 app.asar 补丁只在启动时读取。仅关闭窗口（最小化到托盘）不算重启。
+
+### 方式二：手工写进 profile
+
+1. 把仓库放到任意目录，例如 `D:\plugins\dsh-macos`。
 2. 打开 profile 目录：`%USERPROFILE%\.dsh\profiles\desktop`（其它 profile 同理）。
 3. 编辑该目录下的 `package.json`：
 
@@ -51,32 +85,38 @@
    New-Item -ItemType Junction -Path "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-macos" -Target "D:\plugins\dsh-macos"
    ```
 
-5. **完全退出并重新启动 DSH。** 宿主半侧与 app.asar 补丁只在启动时生效，仅关掉窗口（最小化到托盘）不算重启。
+5. 同样要**完全重启**。
 
-### 方式二：交给 DSH 的插件管理
+### 方式三：交给 DSH 的插件管理
 
-在 **设置 → 插件** 里添加 `dsh-macos`。无论用哪种方式，装完都要按上面的第 5 步**完全重启**。
+在 **设置 → 插件** 里添加 `dsh-macos`。无论用哪种方式，装完都要**完全重启**。
 
 ### 安装成功的判断
 
 - 左上角出现三个圆点，且顶栏没有 Windows 的 ❐ ✕ 按钮；
-- 在插件目录执行 `node verify.mjs`，**33 项检查**应全绿；
+- 在插件目录执行 `node verify.mjs`，**36 项检查**应全绿；
 - 想确认 app.asar 补丁状态：`node tools/bundle-patch.mjs status`（见下）。
 
 ## 卸载与还原
 
-1. 从 profile 的 `bundles` 和 `dependencies` 里移除 `dsh-macos`，并删掉 `node_modules\dsh-macos`，然后**完全重启**。
-2. 插件卸载时会自动把 app.asar 改回原样。若应用被强杀（没走到卸载），或你想手工确认/还原：
+**用客户端自带的插件管理卸载**：**设置 → 插件** 里移除 `dsh-macos`，然后完全重启。这是推荐做法——DSH 会用与安装时相同的方式更新 profile 清单和 `node_modules`，比手写更稳妥。**本仓库因此不提供卸载脚本。**
 
-   ```powershell
-   node tools/bundle-patch.mjs status     # 看当前状态
-   node tools/bundle-patch.mjs restore    # 还原两个改名
-   node tools/bundle-patch.mjs hide       # 反向：重新移除标题栏按钮
-   ```
+**它唯一管不到的一步**：app.asar 里那两处改名。还原发生在**插件自己被卸载（dispose）时**，而"移除后重启"这类流程不会再把插件加载起来，改名就可能留下。判断与处理：
 
-   也可以直接传 app.asar 路径：`node tools/bundle-patch.mjs status "D:\...\resources\app.asar"`。
+- 重启后 **Windows 的 ❐ ✕ 按钮回来了** → 已经被正确还原，什么都不用做；
+- 重启后 **按钮仍然不见** → 补丁还在，手工还原一次：
 
-3. 只想让插件**别动** app.asar（保留其它功能）：启动应用时带环境变量 `DSH_MACOS_NO_BUNDLE_PATCH=1`。
+```powershell
+node tools/bundle-patch.mjs status     # already = 补丁仍在；renamed = 已还原
+node tools/bundle-patch.mjs restore    # 还原两个改名
+node tools/bundle-patch.mjs hide       # 反向：重新移除标题栏按钮
+```
+
+也可以直接传 app.asar 路径：`node tools/bundle-patch.mjs status "D:\...\resources\app.asar"`。
+
+**完全手工卸载**（不使用插件管理时）：从 profile 的 `bundles` 与 `dependencies` 里移除 `dsh-macos`，删掉 `node_modules\dsh-macos`，完全重启，再按上面的 `restore` 确认归档已还原。
+
+只想让插件**别动** app.asar（保留其它功能）：启动应用时带环境变量 `DSH_MACOS_NO_BUNDLE_PATCH=1`。
 
 ## 它改了什么
 
@@ -119,7 +159,7 @@
 ## 开发
 
 ```powershell
-node verify.mjs                        # 33 项检查，全绿才算通过
+node verify.mjs                        # 36 项检查，全绿才算通过
 node tools/extract-dsh-surface.mjs     # DSH 升级后刷新类名/槽位快照
 node tools/bundle-patch.mjs status     # 只读查看 app.asar 补丁状态
 ```
@@ -144,10 +184,13 @@ dsh-macos/
 ├── cordis.patch.yml    宿主平面的一行（id 必须等于包名 dsh-macos）
 ├── locale/{en,zh}.json 名称与描述
 ├── surface/            对某个 DSH 版本的类名/槽位快照（维护用）
+├── install.cmd         双击即可的一键安装入口
 ├── tools/
-│   ├── bundle-patch.mjs      查看/还原 app.asar 补丁
+│   ├── install.mjs     一键安装（可重复运行，含冲突预检）
+│   ├── profile.mjs            profile 清单编辑与联接（安装器的可测内核）
+│   ├── bundle-patch.mjs       查看/隐藏/还原 app.asar 补丁
 │   └── extract-dsh-surface.mjs  刷新快照
-├── verify.mjs          33 项自检
+├── verify.mjs          36 项自检
 └── package.json
 ```
 
@@ -162,9 +205,13 @@ MIT，见 [LICENSE](./LICENSE)。
 A DeepSeek Harness desktop plugin that gives the Windows client the macOS look: traffic lights,
 a collapsible frosted sidebar, a flush seam between the two parts, and no caption buttons at all.
 
-**Install:** add `dsh-macos` to `dsh.profile.bundles` and a `link:`/`file:` dependency in the
-profile's `package.json` (`%USERPROFILE%\.dsh\profiles\desktop`), make `node_modules/dsh-macos`
-resolve to this folder, then **fully restart** the app. `node verify.mjs` runs 33 checks.
+**Install:** run `install.cmd` (or `node tools/install.mjs`). It writes the bundle row and a `link:`
+dependency into the profile's `package.json` (`%USERPROFILE%\.dsh\profiles\desktop`), points
+`node_modules/dsh-macos` at this folder, and hides the platform's caption buttons — then asks for a
+**full restart**. There is no uninstaller: remove the plugin in **Settings → Plugins**, then run
+`node tools/bundle-patch.mjs restore` if the caption buttons do not come back on their own.
+`--dry-run` reports without writing, and a profile that already points at another copy is refused
+rather than half-rewritten. `node verify.mjs` runs 36 checks.
 
 **How it works:** it reports the platform as `darwin`, which switches on the macOS styling DSH
 already ships, and adds what macOS normally gets from the OS — a blur layer, edge highlights, a
@@ -179,6 +226,7 @@ opaque window; the outermost ~8px of corner rounding is drawn by the window mana
 an app update needs one restart so the bundle edit is re-applied; and if the plugin ever fails to
 load, the app may write `disabled: true` for it into the profile's `cordis.patch.yml` — remove that
 entry to bring it back.
+
 
 
 

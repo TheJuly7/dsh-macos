@@ -13,9 +13,12 @@
 - **顶栏控件排序**：折叠态 `三个圆点 → 折叠按钮 → 新会话 → 会话名`；展开态折叠按钮回到侧边栏标题行右端、新会话留在侧边栏内。
 - **彻底移除 Windows 标题栏按钮**：通过 app.asar 内**两次同长度改名**（主窗口 `titleBarOverlay` 选项 + preload 上报标题栏颜色的 IPC 频道）让平台不再创建那个覆盖层；加载时施加、卸载时还原，`DSH_MACOS_NO_BUNDLE_PATCH=1` 可整体关闭。
 - **宿主窗口路由**：`POST /plugins/dsh-macos/window`，仅回环、仅 POST、请求体 ≤ 1 KB、动作白名单，只作用于 `process.ppid` 拥有的可见窗口，Win32 绑定使用 DSH 自带的 Koffi。
-- **工具与自检**：`verify.mjs`（33 项检查）、`tools/bundle-patch.mjs`（查看/还原补丁）、`tools/extract-dsh-surface.mjs`（刷新类名/槽位快照）。
+- **工具与自检**：`verify.mjs`（36 项检查）、`tools/profile.mjs`（清单编辑与联接的可测内核）、`tools/bundle-patch.mjs`（查看/隐藏/还原补丁）、`tools/extract-dsh-surface.mjs`（刷新类名/槽位快照）。
+- **一键安装**：`install.cmd`（或 `node tools/install.mjs`）自动写 profile 清单（带时间戳备份）、建 `node_modules` 联接、施加归档补丁；可重复运行，支持 `--dry-run` / `--profile` / `--home` / `--no-patch` / `--force`。**卸载交给客户端自带的插件管理**（设置 → 插件），本仓库不提供卸载脚本；唯一管不到的是 app.asar 那两处改名，用 `tools/bundle-patch.mjs restore` 兜底。
 
 ### 开发中定位并修掉的问题（维护者会用到）
+
+- **安装器差点把 profile 改成半装状态**：从 A 副本运行安装器、而 profile 原本指向 B 副本时，它先按"A 的路径"改写了 `dependencies`，随后才在建立联接时发现冲突并中止——于是 profile 的依赖指向 A、联接却指向 B。现在**先预检、后写入**：只要 profile 已指向另一份副本，就直接拒绝并保持原样（`--force` 才切换），并且卸载器同样只移除属于当前这份副本的安装。校验器里加了针对性的断言。
 
 - **宿主进程里找不到 app.asar**：桌面外壳把宿主子进程拉起来时，`argv[2]` 是**宿主入口脚本**、`argv[3]` 才是 runtimeDir，而 `process.execPath` 是 node 二进制——三者都不是归档位置。结果插件在进程内报 `bundle-not-found`，虽然磁盘上的补丁仍然有效（按钮照样是隐藏的），但**应用升级后无法自动重打**。现在从入口路径里截取 `.asar` 得到归档位置，并有一条按真实 spawn 形状构造的测试。
 - **只改窗口选项会让应用起不来**：`titleBarOverlay` 被改名后，preload 仍在汇报标题栏颜色，主进程抛 `Titlebar overlay is not enabled`。必须**同时**改名那个 IPC 频道。

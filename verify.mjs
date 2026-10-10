@@ -21,6 +21,7 @@
  *   node verify.mjs [--surface <file>]
  */
 import fs from 'node:fs'
+import os from 'node:os'
 import vm from 'node:vm'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -691,6 +692,78 @@ if (injectedCss !== '') {
   }
 }
 
+// ------------------------------------------------------------- installer
+// The installer edits a profile manifest and links the plugin into node_modules, so its edits get
+// the same treatment as the rest: the pure parts are exercised here, and the link round trip is
+// run against a throwaway directory rather than a real profile.
+{
+  const tools = await import(pathToFileURL(path.join(root, 'tools', 'profile.mjs')).href)
+  const base = {
+    name: 'dsh-profile-desktop',
+    dsh: { profile: { bundles: ['@deepseek-ai/dsh-base'] } },
+    dependencies: { '@deepseek-ai/dsh-base': '^0.2.0' },
+  }
+
+  const merged = tools.mergeManifest(base, 'D:/plugins/dsh-macos')
+  if (merged === null) fail.push('the installer did not add the plugin to a manifest that lacks it')
+  else if (!merged.dsh.profile.bundles.includes('dsh-macos')) fail.push('the installer did not add the bundle row')
+  else if (merged.dependencies['dsh-macos'] !== 'link:D:/plugins/dsh-macos') {
+    fail.push('the installer did not record a forward-slash link dependency')
+  } else if (merged.dsh.profile.bundles[0] !== '@deepseek-ai/dsh-base' || merged.dependencies['@deepseek-ai/dsh-base'] !== '^0.2.0') {
+    fail.push('the installer reordered or dropped the profile\'s existing bundles and dependencies')
+  } else if (tools.mergeManifest(merged, 'D:/plugins/dsh-macos') !== null) {
+    fail.push('installing twice would rewrite the manifest again')
+  } else {
+    note('installer            : manifest edits are additive and idempotent; existing entries stay untouched')
+  }
+
+  // A profile that already points at another copy is a conflict, not an install. Getting this wrong
+  // once rewrote a real profile's dependency while the junction still pointed elsewhere, leaving the
+  // client half-installed — so it is checked here, before anything can be written.
+  const foreign = {
+    dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-macos'] } },
+    dependencies: { 'dsh-macos': 'link:D:/other/dsh-macos' },
+  }
+  const installConflict = tools.installPlan(foreign, 'D:/plugins/dsh-macos', 'D:\\other\\dsh-macos')
+  const linkConflict = tools.installPlan(base, 'D:/plugins/dsh-macos', 'D:\\other\\dsh-macos')
+  const cleanInstall = tools.installPlan(base, 'D:/plugins/dsh-macos', null)
+  const cleanNoop = tools.installPlan(merged, 'D:/plugins/dsh-macos', 'D:\\plugins\\dsh-macos')
+  if (installConflict.action !== 'conflict' || linkConflict.action !== 'conflict') {
+    fail.push('the installer would rewrite a profile that already points at a different copy of the plugin')
+  } else if (cleanInstall.action !== 'install' || cleanNoop.action !== 'noop') {
+    fail.push('the installer misreads a clean profile')
+  } else {
+    note('installer conflicts  : another copy in the profile is refused, never half-rewritten')
+  }
+
+  // The link itself: created against a scratch directory, then removed, and never followed into
+  // the plugin folder on the way out (a junction is deleted, not emptied).
+  const scratch = path.join(os.tmpdir(), `dsh-macos-verify-${process.pid.toString(36)}`)
+  try {
+    fs.mkdirSync(path.join(scratch, 'profile'), { recursive: true })
+    const linked = tools.linkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'plugin'))
+    const other = tools.linkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'elsewhere'))
+    if (linked !== 'linked') fail.push(`the installer did not link the plugin (${linked})`)
+    else if (!String(other).startsWith('conflict')) fail.push('the installer would replace a link that already points elsewhere')
+    else {
+      fs.mkdirSync(path.join(scratch, 'plugin', 'marker'), { recursive: true })
+      const unlinked = tools.unlinkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'plugin'))
+      const survived = fs.existsSync(path.join(scratch, 'plugin', 'marker'))
+      if (unlinked !== 'unlinked') fail.push(`removing the link failed (${unlinked})`)
+      else if (!survived) fail.push('removing the link deleted the plugin folder through it')
+      else note('installer link       : a junction is created, refuses a foreign target, and is removed without following it')
+    }
+  } catch (error) {
+    fail.push('the link round trip failed: ' + (error instanceof Error ? error.message : String(error)))
+  } finally {
+    try {
+      fs.rmSync(scratch, { recursive: true, force: true })
+    } catch {
+      /* the scratch directory is best effort */
+    }
+  }
+}
+
 console.log('')
 if (fail.length > 0) {
   console.log('FAIL')
@@ -698,6 +771,7 @@ if (fail.length > 0) {
   process.exit(1)
 }
 console.log('PASS — all checks green')
+
 
 
 

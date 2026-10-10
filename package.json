@@ -38,11 +38,13 @@
     "surface",
     "tools",
     "verify.mjs",
+    "install.cmd",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
+    "setup": "node tools/install.mjs",
     "verify": "node verify.mjs",
     "surface": "node tools/extract-dsh-surface.mjs"
   },
@@ -51,3 +53,5 @@
     "client": { "platform": "web" }
   }
 }
+
+

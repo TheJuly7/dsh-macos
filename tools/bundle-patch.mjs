@@ -23,36 +23,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { findBundle } from './profile.mjs'
 
-const here = path.dirname(fileURLToPath(import.meta.url))
 const { bundleStatus, patchBundle } = await import(new URL('../lib/index.js', import.meta.url))
-
-/** The installed app.asar, from an explicit path or from the usual install locations. */
-function findBundle(explicit) {
-  const tries = []
-  if (explicit !== undefined) tries.push(path.resolve(explicit))
-  const roots = [
-    process.env['ProgramFiles'],
-    process.env['ProgramFiles(x86)'],
-    process.env['LOCALAPPDATA'] === undefined ? undefined : path.join(process.env['LOCALAPPDATA'], 'Programs'),
-  ].filter((value) => value !== undefined && value !== '')
-  for (const root of roots) {
-    for (const name of ['DeepSeek Harness', 'deepseekHarness', 'deepseek-harness', 'DeepSeekHarness']) {
-      tries.push(path.join(root, name, 'resources', 'app.asar'))
-    }
-  }
-  for (const candidate of tries) {
-    try {
-      if (path.basename(candidate) === 'app.asar' && fs.statSync(candidate).isFile()) return candidate
-      // A runtime directory was passed instead: its parent is the bundle.
-      const parent = path.dirname(candidate)
-      if (fs.statSync(parent).isFile() && path.basename(parent) === 'app.asar') return parent
-    } catch {
-      /* try the next candidate */
-    }
-  }
-  return null
-}
 
 const args = process.argv.slice(2)
 // `hide`, `restore`, `status <path>`, or just `<path>` — the action defaults to reporting.
