@@ -92,18 +92,6 @@ node tools/bundle-patch.mjs restore    # 还原
 
 改 `lib/client.js`（浏览器半）保存即**热重载**；改 `lib/index.js`（宿主半）或归档补丁需要**完全重启**。
 
-### 发版流程（维护者）
-
-```powershell
-# 1) 改 package.json 的 version，并把这次改动写进 CHANGELOG.md
-# 2) 提交并推送
-git add -A; git commit -m "release: v0.1.1"; git push origin main
-# 3) 打注解标签并推送（使用者按 #v0.1.1 安装）
-git tag -a v0.1.1 -m "dsh-macos 0.1.1"; git push origin v0.1.1
-```
-
-标签是使用者安装地址的一部分（`…#v0.1.1`），所以**标签名一旦推送就不要移动**：要改内容就发下一个版本号。
-
 ## 许可
 
 MIT，见 [LICENSE](./LICENSE)。
