@@ -736,6 +736,27 @@ if (injectedCss !== '') {
     note('installer conflicts  : another copy in the profile is refused, never half-rewritten')
   }
 
+  // Removal: `--remove` only takes apart an installation that belongs to this folder, and it
+  // leaves every other bundle and dependency exactly as it found them.
+  {
+    const removeConflict = tools.removePlan(foreign, 'D:/plugins/dsh-macos', 'D:\\other\\dsh-macos')
+    const removeOwn = tools.removePlan(merged, 'D:/plugins/dsh-macos', 'D:\\plugins\\dsh-macos')
+    const stripped = tools.stripManifest(merged)
+    if (removeConflict.action !== 'conflict') {
+      fail.push('--remove would take apart an installation belonging to a different copy')
+    } else if (removeOwn.action !== 'remove') {
+      fail.push('--remove does not recognise its own installation')
+    } else if (stripped === null) {
+      fail.push('--remove does not recognise its own profile entries')
+    } else if (stripped.dsh.profile.bundles.includes('dsh-macos') || 'dsh-macos' in stripped.dependencies) {
+      fail.push('--remove left its own entries behind')
+    } else if (stripped.dsh.profile.bundles[0] !== '@deepseek-ai/dsh-base' || stripped.dependencies['@deepseek-ai/dsh-base'] !== '^0.2.0') {
+      fail.push('--remove removed something that was not its own')
+    } else {
+      note('removal              : only this folder\'s installation is taken apart, other entries untouched')
+    }
+  }
+
   // The link itself: created against a scratch directory, then removed, and never followed into
   // the plugin folder on the way out (a junction is deleted, not emptied).
   const scratch = path.join(os.tmpdir(), `dsh-macos-verify-${process.pid.toString(36)}`)

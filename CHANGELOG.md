@@ -13,12 +13,12 @@
 - **顶栏控件排序**：折叠态 `三个圆点 → 折叠按钮 → 新会话 → 会话名`；展开态折叠按钮回到侧边栏标题行右端、新会话留在侧边栏内。
 - **彻底移除 Windows 标题栏按钮**：通过 app.asar 内**两次同长度改名**（主窗口 `titleBarOverlay` 选项 + preload 上报标题栏颜色的 IPC 频道）让平台不再创建那个覆盖层；加载时施加、卸载时还原，`DSH_MACOS_NO_BUNDLE_PATCH=1` 可整体关闭。
 - **宿主窗口路由**：`POST /plugins/dsh-macos/window`，仅回环、仅 POST、请求体 ≤ 1 KB、动作白名单，只作用于 `process.ppid` 拥有的可见窗口，Win32 绑定使用 DSH 自带的 Koffi。
-- **工具与自检**：`verify.mjs`（36 项检查）、`tools/profile.mjs`（清单编辑与联接的可测内核）、`tools/bundle-patch.mjs`（查看/隐藏/还原补丁）、`tools/extract-dsh-surface.mjs`（刷新类名/槽位快照）。
-- **一键安装**：`install.cmd`（或 `node tools/install.mjs`）自动写 profile 清单（带时间戳备份）、建 `node_modules` 联接、施加归档补丁；可重复运行，支持 `--dry-run` / `--profile` / `--home` / `--no-patch` / `--force`。**卸载交给客户端自带的插件管理**（设置 → 插件），本仓库不提供卸载脚本；唯一管不到的是 app.asar 那两处改名，用 `tools/bundle-patch.mjs restore` 兜底。
+- **工具与自检**：`verify.mjs`（37 项检查）、`tools/profile.mjs`（清单编辑与联接的可测内核）、`tools/bundle-patch.mjs`（查看/隐藏/还原补丁）、`tools/extract-dsh-surface.mjs`（刷新类名/槽位快照）。
+- **一键安装**：`install.cmd`（或 `node tools/install.mjs`）自动写 profile 清单（带时间戳备份）、建 `node_modules` 联接、施加归档补丁；可重复运行，支持 `--dry-run` / `--profile` / `--home` / `--no-patch` / `--force`。**卸载**：左侧栏「插件」页能卸载就用手界面；`link:` 装法不总出现在那一页的列表里（"设置 → 插件"只列内置插件），所以提供 `uninstall.cmd`（`node tools/install.mjs --remove`）——移除条目、删联接、还原归档补丁。
 
 ### 开发中定位并修掉的问题（维护者会用到）
 
-- **两条安装路线会互相撞车**：客户端插件管理从 git 地址安装时，会先移除 profile 里的旧条目，再让 pnpm 导入 `node_modules/<包名>`；若那里已经是 `install.cmd` 建的**目录联接**，pnpm 在 Windows 上无法覆盖，于是报 `ERR_PNPM_EPERM`，而 profile 里的 bundle 行与依赖**已经被删掉**——重启就失去皮肤（实测发生了一次，用 `install.cmd` 修复）。现在 README 写明两种装法只能选一种、给出删除联接的命令，并提示"安装失败后跑一次 install.cmd 修回"。
+- **两条安装路线会互相撞车**：左侧栏「插件」页从 git 地址安装时，会先移除 profile 里的旧条目，再让 pnpm 导入 `node_modules/<包名>`；若那里已经是 `install.cmd` 建的**目录联接**，pnpm 在 Windows 上无法覆盖，于是报 `ERR_PNPM_EPERM`，而 profile 里的 bundle 行与依赖**已经被删掉**——重启就失去皮肤（实测发生了一次，用 `install.cmd` 修复）。现在 README 写明两种装法只能选一种、给出删除联接的命令，并提示"安装失败后跑一次 install.cmd 修回"。
 
 - **安装器差点把 profile 改成半装状态**：从 A 副本运行安装器、而 profile 原本指向 B 副本时，它先按"A 的路径"改写了 `dependencies`，随后才在建立联接时发现冲突并中止——于是 profile 的依赖指向 A、联接却指向 B。现在**先预检、后写入**：只要 profile 已指向另一份副本，就直接拒绝并保持原样（`--force` 才切换），并且卸载器同样只移除属于当前这份副本的安装。校验器里加了针对性的断言。
 

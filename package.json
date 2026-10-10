@@ -42,12 +42,14 @@
     "tools",
     "verify.mjs",
     "install.cmd",
+    "uninstall.cmd",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
     "setup": "node tools/install.mjs",
+    "teardown": "node tools/install.mjs --remove",
     "verify": "node verify.mjs",
     "surface": "node tools/extract-dsh-surface.mjs"
   },

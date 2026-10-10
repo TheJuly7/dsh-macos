@@ -7,6 +7,7 @@
  *   node tools/install.mjs --home <dir>        a different .dsh/profiles root (portable installs)
  *   node tools/install.mjs --dry-run           report what would change, write nothing
  *   node tools/install.mjs --no-patch          do not touch the application's app.asar
+ *   node tools/install.mjs --remove           undo the install (also via uninstall.cmd)
  *
  * What it does, in order:
  *   1. finds the profile and keeps a timestamped copy of its package.json;
@@ -17,11 +18,10 @@
  * A full restart of the client is required afterwards: the host half and the archive edit are
  * read when the application starts.
  *
- * There is deliberately no uninstaller. The client's own plugin manager (Settings → Plugins)
- * removes a bundle properly, updating the profile and node_modules the way it installed them.
- * The one step it cannot undo is the archive edit, because that happens while the plugin is
- * loaded and an uninstall does not necessarily load it again — `tools/bundle-patch.mjs restore`
- * exists for exactly that, and the last line printed here names it.
+ * `--remove` undoes all four steps, and uninstall.cmd calls it. It exists because the plugin page
+ * — the one opened from the sidebar, where the install dialog lives; "Settings → Plugins" lists
+ * built-ins only — does not reliably list a plugin that a profile links with `link:`, so there
+ * would otherwise be no way to remove it.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -34,6 +34,8 @@ import {
   installPlan,
   linkPlugin,
   mergeManifest,
+  removePlan,
+  stripManifest,
   profilesRoot,
   unlinkPlugin,
   writeManifest,
@@ -44,7 +46,7 @@ const { patchBundle } = await import(new URL('../lib/index.js', import.meta.url)
 
 /** Minimal flag parsing: --name value, --flag. */
 function parseArgs(argv) {
-  const options = { profile: null, home: null, dryRun: false, patch: true, force: false, help: false }
+  const options = { profile: null, home: null, dryRun: false, patch: true, force: false, remove: false, help: false }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--profile' || arg === '-p') options.profile = argv[++index] ?? null
@@ -52,6 +54,7 @@ function parseArgs(argv) {
     else if (arg === '--dry-run' || arg === '-n') options.dryRun = true
     else if (arg === '--no-patch') options.patch = false
     else if (arg === '--force' || arg === '-f') options.force = true
+    else if (arg === '--remove' || arg === '-r') options.remove = true
     else if (arg === '--help' || arg === '-h') options.help = true
     else {
       console.error(`unknown argument "${arg}" — try --help`)
@@ -98,15 +101,47 @@ try {
 } catch {
   linkTarget = fs.existsSync(linkPath) ? 'directory' : null
 }
-const plan = installPlan(manifest, pluginDir, linkTarget)
+const plan = options.remove ? removePlan(manifest, pluginDir, linkTarget) : installPlan(manifest, pluginDir, linkTarget)
 say('state', plan.detail)
 if (plan.action === 'conflict' && !options.force) {
   console.error('')
-  console.error('error     : this profile already uses a different copy of the plugin.')
-  console.error('            Run the installer from that folder instead, or pass --force to point this')
-  console.error('            profile at the copy you are running now.')
+  if (options.remove) {
+    console.error('error     : this profile installs the plugin from somewhere else, so nothing was changed.')
+    console.error('            Remove it on the sidebar 插件 page instead. If you really want these profile')
+    console.error('            entries dropped anyway, pass --force.')
+  } else {
+    console.error('error     : this profile already uses a different copy of the plugin.')
+    console.error('            Run this from that folder instead, or pass --force to point this profile at')
+    console.error('            the copy you are running now.')
+  }
   process.exit(1)
 }
+
+if (options.remove) {
+  // Removal: the profile entries first, then the link, then the archive edit.
+  const stripped = stripManifest(manifest)
+  if (stripped === null) {
+    say('manifest', 'does not list this plugin; nothing to change')
+  } else if (options.dryRun) {
+    say('manifest', 'would drop the bundle row and the link dependency')
+  } else {
+    const backup = writeManifest(manifestFile, stripped)
+    say('manifest', `updated (backup: ${path.basename(backup)})`)
+  }
+  const unlinked = options.dryRun ? 'would unlink node_modules/dsh-macos' : unlinkPlugin(profileDir, pluginDir)
+  say('link', typeof unlinked === 'string' && unlinked.startsWith('conflict') ? `left alone: it points at ${unlinked.slice(9)}` : unlinked)
+  if (options.patch) {
+    const bundle = findBundle()
+    if (bundle === null) say('caption', 'app.asar not found; nothing to restore')
+    else say('caption', options.dryRun ? `would restore ${bundle}` : `${patchBundle('restore', bundle)}  (${bundle})`)
+  } else {
+    say('caption', 'left as it is (--no-patch)')
+  }
+  console.log('')
+  console.log(options.dryRun ? 'dry run: nothing was written' : 'next      : fully restart the client')
+  process.exit(0)
+}
+
 if (plan.action === 'noop' && !options.force) {
   say('manifest', 'already lists this plugin; nothing to change')
   say('link', 'unchanged')
@@ -158,7 +193,7 @@ if (options.dryRun) {
   console.log('dry run: nothing was written')
 } else {
   console.log('next      : fully restart the client (close it to the tray is not enough)')
-  console.log('remove    : Settings → Plugins, then restart')
+  console.log('remove    : the sidebar 插件 page, or uninstall.cmd (tools/install.mjs --remove)')
   console.log(`            if the caption buttons come back on their own, run: node ${path.join(pluginDir, 'tools', 'bundle-patch.mjs')} restore`)
 }
 

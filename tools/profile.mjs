@@ -115,11 +115,48 @@ export function installPlan(manifest, pluginDir, linkTarget) {
   return { action: 'install', detail: 'adds the bundle row, the link dependency and the junction' }
 }
 
+/**
+ * Decide what a removal would do, without touching anything.
+ *
+ * Removal only touches an installation that belongs to this folder. A profile pointing at another
+ * copy keeps its entries, so removing one installation cannot disable somebody else's.
+ */
+export function removePlan(manifest, pluginDir, linkTarget) {
+  const desired = linkSpecifier(pluginDir)
+  const declared = at(manifest, ['dependencies', PLUGIN])
+  const listed = Array.isArray(at(manifest, ['dsh', 'profile', 'bundles']))
+    ? manifest.dsh.profile.bundles.includes(PLUGIN)
+    : false
+  if (declared === null && !listed && linkTarget === null) return { action: 'noop', detail: 'not installed' }
+  if (declared !== null && declared !== desired) {
+    return { action: 'conflict', detail: `the profile's dependency points at ${declared}` }
+  }
+  if (typeof linkTarget === 'string' && path.resolve(linkTarget) !== path.resolve(pluginDir)) {
+    return { action: 'conflict', detail: `node_modules/${PLUGIN} points at ${linkTarget}` }
+  }
+  return { action: 'remove', detail: 'removes the bundle row, the dependency and the junction' }
+}
+
+/**
+ * Remove this plugin from a profile manifest, leaving every other bundle and dependency as it is.
+ * @returns a new manifest, or null when nothing had to change.
+ */
+export function stripManifest(manifest) {
+  const next = JSON.parse(JSON.stringify(manifest))
+  const bundles = next.dsh?.profile?.bundles
+  const dependencies = next.dependencies
+  const listed = Array.isArray(bundles) && bundles.includes(PLUGIN)
+  const linked = typeof dependencies === 'object' && dependencies !== null && PLUGIN in dependencies
+  if (!listed && !linked) return null
+  if (Array.isArray(bundles)) next.dsh.profile.bundles = bundles.filter((name) => name !== PLUGIN)
+  if (typeof dependencies === 'object' && dependencies !== null) delete next.dependencies[PLUGIN]
+  return next
+}
+
 /** Add this plugin to a profile manifest.
  * @returns a new manifest, or null when nothing had to change.
  */
-export function mergeManifest(manifest, pluginDir) {
-  const next = JSON.parse(JSON.stringify(manifest))
+export function mergeManifest(manifest, pluginDir) {  const next = JSON.parse(JSON.stringify(manifest))
   next.dsh = next.dsh ?? {}
   next.dsh.profile = next.dsh.profile ?? {}
   const bundles = Array.isArray(next.dsh.profile.bundles) ? next.dsh.profile.bundles : []

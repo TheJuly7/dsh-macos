@@ -6,33 +6,53 @@
 
 ## 安装
 
+两种装法**只能选一种**，别混用。
+
+### 方式一：在「插件」页里从 git 安装（推荐给使用者）
+
+打开**左侧栏的「插件」页**（不是"设置 → 插件"：那里只列内置插件），添加仓库地址并安装：
+
+```
+https://github.com/TheJuly7/dsh-macos.git
+```
+
+装好后**完全退出并重新打开** DSH。这种方式由客户端自己管理，插件会出现在那一页的列表里，升级和卸载都在那里操作。
+
+### 方式二：`install.cmd`（推荐给要改代码的人）
+
 1. 把仓库放到任意目录，例如 `D:\plugins\dsh-macos`；
 2. **双击 `install.cmd`**（或在终端里 `node tools\install.mjs`）——它会把插件写进 profile、建好 `node_modules` 联接、并隐藏标题栏按钮；
 3. **完全退出并重新打开** DSH。
 
-| 要求 | |
-|---|---|
-| 系统 | Windows 10 / 11 |
-| 应用 | DeepSeek Harness 桌面客户端（在 0.2.0-rc.2 上验证） |
-| Node | ≥ 20（仅安装与脚本需要） |
+因为用的是 `link:`，改 `lib/client.js` 保存即生效（宿主半侧仍需重启）。安装器可重复运行（已装好时只报告、不写文件），常用参数：`--dry-run` 只报告；`--profile <名字>` 指定 profile；`--no-patch` 不动 app.asar。
 
-安装器可重复运行（已装好时只报告、不写文件）。常用参数：`--dry-run` 只报告会改什么；`--profile <名字>` 指定 profile；`--no-patch` 不动 app.asar；`--force` 当 profile 已指向另一份副本时强行切换。
+### 从一种装法换到另一种
 
-### 也可以用「设置 → 插件」从 git 安装
-
-两种装法**只能选一种**：`install.cmd` 用 `link:`（改代码即时生效，本仓库推荐）；从 git 地址安装则是**复制**一份快照。若之前用过 `install.cmd`，先删掉它建的联接，否则 pnpm 无法覆盖（会报 `ERR_PNPM_EPERM`）：
+先删掉 `node_modules\dsh-macos` 这一项（联接或副本都删它），否则 pnpm 无法覆盖（会报 `ERR_PNPM_EPERM`）：
 
 ```powershell
 cmd /c rmdir "%USERPROFILE%\.dsh\profiles\desktop\node_modules\dsh-macos"
 ```
 
-反过来也一样：从 git 装过之后想改用 `install.cmd`，先删掉那份复制品（联接也好、实体目录也好，删的都是 `node_modules\dsh-macos` 这一项）。
+> ⚠️ 插件页里的安装**失败**时会把 profile 里的条目先移除再回滚——若失败后插件"消失"，跑一次 `install.cmd` 即可修回。
 
-> ⚠️ 插件管理里的安装**失败**时会把 profile 里的条目先移除再回滚——若失败后插件"消失"，跑一次 `install.cmd` 即可修回。
+| 要求 | |
+|---|---|
+| 系统 | Windows 10 / 11 |
+| 应用 | DeepSeek Harness 桌面客户端（在 0.2.0-rc.2 上验证） |
+| Node | ≥ 20（仅 `install.cmd` 与脚本需要） |
 
 ## 卸载
 
-在 **设置 → 插件** 里移除 `dsh-macos`，然后完全重启。若重启后标题栏按钮**没有**回来（说明归档补丁还在）：
+先看**左侧栏「插件」页**的列表里有没有 `dsh-macos`（macOS 外壳）：有就在那里卸载；`link:` 方式装的插件不总出现在该列表里，那就用仓库里的卸载脚本：
+
+```powershell
+uninstall.cmd                                              # 或 node tools\install.mjs --remove
+```
+
+它会移除 profile 条目（带备份）、删掉联接、还原归档补丁。之后完全重启。
+
+若重启后标题栏按钮**没有**回来（说明归档补丁还在）：
 
 ```powershell
 node tools/bundle-patch.mjs status     # already = 补丁仍在
@@ -59,7 +79,7 @@ node tools/bundle-patch.mjs restore    # 还原
 
 | 命令 | 作用 |
 |---|---|
-| `node verify.mjs` | 36 项自检 |
+| `node verify.mjs` | 37 项自检 |
 | `node tools/install.mjs --dry-run` | 看安装器会改什么 |
 | `node tools/bundle-patch.mjs status` | 查看/还原归档补丁 |
 | `node tools/extract-dsh-surface.mjs` | DSH 升级后刷新类名/槽位快照 |
