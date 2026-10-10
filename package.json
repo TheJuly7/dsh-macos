@@ -1,12 +1,15 @@
 {
   "name": "dsh-macos",
   "version": "0.1.0",
-  "private": true,
   "description": "Makes the DeepSeek Harness desktop client on Windows look and behave like the macOS build: traffic lights, a collapsible frosted sidebar, a flush seam between the two parts, and no caption buttons.",
   "type": "module",
   "license": "MIT",
   "main": "lib/index.js",
   "icon": "./icon.svg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheJuly7/dsh-macos.git"
+  },
   "keywords": [
     "dsh",
     "deepseek-harness",

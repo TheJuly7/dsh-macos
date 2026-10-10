@@ -18,6 +18,18 @@
 
 安装器可重复运行（已装好时只报告、不写文件）。常用参数：`--dry-run` 只报告会改什么；`--profile <名字>` 指定 profile；`--no-patch` 不动 app.asar；`--force` 当 profile 已指向另一份副本时强行切换。
 
+### 也可以用「设置 → 插件」从 git 安装
+
+两种装法**只能选一种**：`install.cmd` 用 `link:`（改代码即时生效，本仓库推荐）；从 git 地址安装则是**复制**一份快照。若之前用过 `install.cmd`，先删掉它建的联接，否则 pnpm 无法覆盖（会报 `ERR_PNPM_EPERM`）：
+
+```powershell
+cmd /c rmdir "%USERPROFILE%\.dsh\profiles\desktop\node_modules\dsh-macos"
+```
+
+反过来也一样：从 git 装过之后想改用 `install.cmd`，先删掉那份复制品（联接也好、实体目录也好，删的都是 `node_modules\dsh-macos` 这一项）。
+
+> ⚠️ 插件管理里的安装**失败**时会把 profile 里的条目先移除再回滚——若失败后插件"消失"，跑一次 `install.cmd` 即可修回。
+
 ## 卸载
 
 在 **设置 → 插件** 里移除 `dsh-macos`，然后完全重启。若重启后标题栏按钮**没有**回来（说明归档补丁还在）：
