@@ -73,14 +73,6 @@ node tools/bundle-patch.mjs restore    # 还原
 - **app.asar 内两处同长度改名**（主窗口 `titleBarOverlay` + preload 的外观 IPC 频道），让平台不再创建标题栏按钮覆盖层。加载时施加、卸载时还原，两处都带上下文校验，`DSH_MACOS_NO_BUNDLE_PATCH=1` 可整体关闭；
 - 窗口命令走**仅回环**的 POST 路由（请求体 ≤1 KB、动作白名单，只作用于本进程父窗口的可见窗口）。
 
-## 已知限制
-
-- **"透明"是模拟的**：Windows 没有窗口 vibrancy，玻璃感是在不透明窗口内部画出来的；
-- 窗口最外缘约 8px 的圆角由 Windows（DWM）绘制，页面改不动它；
-- **app.asar 补丁在应用升级后需要重启一次**重新施加；装在 `Program Files` 时需管理员权限；
-- 若插件加载失败，应用可能往 profile 的 `cordis.patch.yml` 写入 `disabled: true`，删掉该条目再重启即可；
-- 中文字体走系统回退（未内嵌 CJK）；三个圆点是自绘的（Windows 没有原生交通灯）。
-
 ## 开发
 
 | 命令 | 作用 |
