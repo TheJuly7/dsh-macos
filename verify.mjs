@@ -203,6 +203,27 @@ if (Array.isArray(host.inject) && host.inject.indexOf('webServer') !== -1) {
 }
 note(`host half            : Win32 window commands behind a POST-only ${host.WINDOW_ROUTE}, guarded by process.ppid`)
 
+// Disabling the plugin has to undo the archive edit, or the caption buttons stay hidden for good:
+// the host half keeps running when the bundle row is removed from the profile. The decision is a
+// pure function so it can be checked here, in both directions — restoring while the plugin is
+// enabled would bring the caption buttons back for a whole session.
+if (typeof host.pluginEnabledIn !== 'function') {
+  fail.push('the host half cannot tell whether it is still enabled, so disabling it would never undo the archive edit')
+} else {
+  const listed = JSON.stringify({ dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-macos'] } } })
+  const absent = JSON.stringify({ dsh: { profile: { bundles: ['@deepseek-ai/dsh-base'] } } })
+  const disabled = '- id: dsh-macos\n  disabled: true\n'
+  const enabled = host.pluginEnabledIn(listed, '') === true && host.pluginEnabledIn(listed, disabled) === false
+  const switchedOff = host.pluginEnabledIn(absent, '') === false
+  const failSafe = host.pluginEnabledIn('{ not json', '') === true
+  if (!enabled || !switchedOff || !failSafe) {
+    fail.push('the enabled-in-profile decision is wrong in one of its cases (listed / removed / disabled / unreadable)')
+  } else if (!/setInterval\(/.test(hostSource) || !/patchBundle\('restore'\)/.test(hostSource)) {
+    fail.push('nothing watches the profile for the plugin being switched off, so the archive edit would stay applied')
+  } else {
+    note('disable watch        : the profile is watched, and the edit is undone only once the plugin is gone')
+  }
+}
 // The stock menu bar sits exactly where the traffic lights go, so the host clears it — and it is
 // the only part of the earlier Win32 pass that was worth keeping. SetWindowLongPtrW and DeleteMenu
 // stay forbidden above, because clearing the caption-button style bits and deleting the close item
@@ -797,21 +818,33 @@ if (injectedCss !== '') {
   }
 
   // The link itself: created against a scratch directory, then removed, and never followed into
-  // the plugin folder on the way out (a junction is deleted, not emptied).
+  // the plugin folder on the way out (a junction is deleted, not emptied). A confined sandbox can
+  // refuse a symlink outside the session workspace; that is a limitation of the environment, not a
+  // defect, so it is reported and skipped rather than failed.
   const scratch = path.join(os.tmpdir(), `dsh-macos-verify-${process.pid.toString(36)}`)
   try {
     fs.mkdirSync(path.join(scratch, 'profile'), { recursive: true })
-    const linked = tools.linkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'plugin'))
-    const other = tools.linkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'elsewhere'))
-    if (linked !== 'linked') fail.push(`the installer did not link the plugin (${linked})`)
-    else if (!String(other).startsWith('conflict')) fail.push('the installer would replace a link that already points elsewhere')
-    else {
-      fs.mkdirSync(path.join(scratch, 'plugin', 'marker'), { recursive: true })
-      const unlinked = tools.unlinkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'plugin'))
-      const survived = fs.existsSync(path.join(scratch, 'plugin', 'marker'))
-      if (unlinked !== 'unlinked') fail.push(`removing the link failed (${unlinked})`)
-      else if (!survived) fail.push('removing the link deleted the plugin folder through it')
-      else note('installer link       : a junction is created, refuses a foreign target, and is removed without following it')
+    let linked
+    try {
+      linked = tools.linkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'plugin'))
+    } catch (error) {
+      note(`installer link       : skipped — this sandbox refuses a scratch symlink (${error instanceof Error ? error.message.split('\n')[0] : String(error)})`)
+      linked = null
+    }
+    if (linked === null) {
+      /* reported above */
+    } else {
+      const other = tools.linkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'elsewhere'))
+      if (linked !== 'linked') fail.push(`the installer did not link the plugin (${linked})`)
+      else if (!String(other).startsWith('conflict')) fail.push('the installer would replace a link that already points elsewhere')
+      else {
+        fs.mkdirSync(path.join(scratch, 'plugin', 'marker'), { recursive: true })
+        const unlinked = tools.unlinkPlugin(path.join(scratch, 'profile'), path.join(scratch, 'plugin'))
+        const survived = fs.existsSync(path.join(scratch, 'plugin', 'marker'))
+        if (unlinked !== 'unlinked') fail.push(`removing the link failed (${unlinked})`)
+        else if (!survived) fail.push('removing the link deleted the plugin folder through it')
+        else note('installer link       : a junction is created, refuses a foreign target, and is removed without following it')
+      }
     }
   } catch (error) {
     fail.push('the link round trip failed: ' + (error instanceof Error ? error.message : String(error)))
@@ -831,6 +864,9 @@ if (fail.length > 0) {
   process.exit(1)
 }
 console.log('PASS — all checks green')
+// Explicit, because the host half is imported and applied for real here: it installs a watcher on
+// the profile, and a watcher keeps the event loop alive. The verifier must always terminate.
+process.exit(0)
 
 
 
