@@ -218,6 +218,11 @@ if (typeof host.pluginEnabledIn !== 'function') {
   const failSafe = host.pluginEnabledIn('{ not json', '') === true
   if (!enabled || !switchedOff || !failSafe) {
     fail.push('the enabled-in-profile decision is wrong in one of its cases (listed / removed / disabled / unreadable)')
+  } else if (!/GRACE_MS/.test(hostSource) || !/absentSince/.test(hostSource)) {
+    // Installing a plugin rewrites the profile and drops the row for a moment; without a grace
+    // window that instant was mistaken for "switched off" and the edit was undone while the plugin
+    // was still enabled — which is exactly how the caption buttons came back for a whole session.
+    fail.push('the disable check has no grace window, so a profile rewrite during an install would undo the edit')
   } else if (!/setInterval\(/.test(hostSource) || !/patchBundle\('restore'\)/.test(hostSource)) {
     fail.push('nothing watches the profile for the plugin being switched off, so the archive edit would stay applied')
   } else {
