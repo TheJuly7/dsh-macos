@@ -229,6 +229,28 @@ if (typeof host.pluginEnabledIn !== 'function') {
     note('disable watch        : the profile is watched, and the edit is undone only once the plugin is gone')
   }
 }
+// The archive edit needs write access to the application folder, which on some machines only
+// administrators have. The host half asks for exactly one elevation in that case, through Windows'
+// own consent prompt and this plugin's own tool; the decision is a pure function, so both
+// directions can be checked here.
+if (typeof host.needsElevation !== 'function') {
+  fail.push('the host half cannot tell a refused write from a successful one, so it cannot offer the elevation')
+} else {
+  const refused =
+    host.needsElevation('read-only') === true && host.needsElevation('failed:EACCES: permission denied') === true
+  const ordinary =
+    host.needsElevation('window option=renamed appearance channel=renamed') === false &&
+    host.needsElevation('window option=already appearance channel=already') === false &&
+    host.needsElevation('bundle-not-found') === false &&
+    host.needsElevation('disabled') === false
+  if (!refused || !ordinary) {
+    fail.push('the refused-write decision is wrong in one of its cases')
+  } else if (!/Start-Process/.test(hostSource) || !/-Verb RunAs/.test(hostSource) || !/needsElevation\(applied\)/.test(hostSource)) {
+    fail.push('nothing asks for the elevation a refused write needs, so the caption buttons would stay for good')
+  } else {
+    note('refused write        : one elevation is requested when the application folder refuses the write')
+  }
+}
 // The stock menu bar sits exactly where the traffic lights go, so the host clears it — and it is
 // the only part of the earlier Win32 pass that was worth keeping. SetWindowLongPtrW and DeleteMenu
 // stay forbidden above, because clearing the caption-button style bits and deleting the close item
@@ -483,6 +505,14 @@ if (injectedCss !== '') {
     fail.push('the window controls reveal their marks through the stylesheet alone, so a render without it shows all three')
   } else {
     note('mark reveal          : driven by component state, so it survives a missing stylesheet')
+  }
+
+  // The archive edit only takes effect on the next launch, so the half that renders must say so:
+  // otherwise the platform's buttons look stuck, and they are still clickable while invisible.
+  if (!/state\.patch/.test(source) || !/dsh-macos-notice/.test(source)) {
+    fail.push('the browser half never mentions that the archive edit waits for a restart, so the buttons look stuck')
+  } else {
+    note('restart notice       : shown when this launch is the one that wrote the archive edit')
   }
 
   // 3. the whole left column is frosted, in both appearances.
