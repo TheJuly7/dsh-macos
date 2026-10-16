@@ -1,6 +1,6 @@
 # dsh-macos
 
-**当前版本：v1.2.3** ｜ [更新记录](./CHANGELOG.md)
+**当前版本：v1.2.4** ｜ [更新记录](./CHANGELOG.md)
 
 把 Windows 版 **DeepSeek Harness 桌面客户端**做成 macOS 版的样子：红黄绿三个圆点、可折叠的磨砂侧边栏、两块之间齐平的接缝，并且**完全没有 Windows 标题栏按钮**。
 
@@ -15,7 +15,7 @@
 打开**左侧栏的「插件」页**（不是"设置 → 插件"：那里只列内置插件），添加这个地址并安装：
 
 ```
-https://github.com/TheJuly7/dsh-macos.git#v1.2.3
+https://github.com/TheJuly7/dsh-macos.git#v1.2.4
 ```
 
 > 安装后插件页可能报一句 **"无法从依赖变更中确定安装了哪一个包"**：那是它自己的判定（在依赖里找**新增的包名**），包名已在 profile 里时就会这样报 ✓，而 pnpm 其实**已经装好了** ✓。**忽略它即可，不需要卸载** ✓。
@@ -77,7 +77,7 @@ node tools/bundle-patch.mjs restore    # 还原
 
 | 命令 | 作用 |
 |---|---|
-| `node verify.mjs` | 47 项自检 |
+| `node verify.mjs` | 48 项自检 |
 | `node tools/install.mjs --dry-run` | 看安装器会改什么 |
 | `node tools/bundle-patch.mjs status` | 查看/还原归档补丁 |
 | `node tools/extract-dsh-surface.mjs` | DSH 升级后刷新类名/槽位快照 |

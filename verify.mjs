@@ -247,6 +247,11 @@ if (typeof host.needsElevation !== 'function') {
     fail.push('the refused-write decision is wrong in one of its cases')
   } else if (!/Start-Process/.test(hostSource) || !/-Verb RunAs/.test(hostSource) || !/needsElevation\(applied\)/.test(hostSource)) {
     fail.push('nothing asks for the elevation a refused write needs, so the caption buttons would stay for good')
+  } else if (!/powerShellLiteral/.test(hostSource) || !/childArguments/.test(hostSource)) {
+    // Start-Process joins an argument array with spaces and quotes nothing itself, so a path with a
+    // space — `D:\DeepSeek Harness\...` is one — would arrive as two fragments and the elevated
+    // helper would patch nothing at all, silently: its window is gone before anyone can look.
+    fail.push('the elevation hands the child a split argument list, so a path with a space would patch nothing')
   } else {
     note('refused write        : one elevation is requested when the application folder refuses the write')
   }
